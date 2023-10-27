@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" type="text/css" href="/css/style.css">
+    <title>Message</title>
+</head>
+<body>
+    <ul id="messages"></ul>
+
+    <form action="" id="form">
+        <input type="text" id="input" autocomplete="off" placeholder="Write some message">
+        <input type="submit" id="encrypt" value="ENCRYPT">
+        <input type="reset" id="decrypt" value="DECRYPT" onclick="">
+    </form>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const messages = document.getElementById('messages');
+        const form = document.getElementById('form');
+        const input = document.getElementById('input');
+        const userID = Date.now();
+
+        form.addEventListener("submit", (e) => {
+            e.preventDefault();
+
+            let lenText = ((input.value).length) / 3 * 3;
+            let encrypttxt = "";
+            let count = 0;
+            let round = 0;
+            let key = 3;
+
+            for(let i=0; i<=lenText+2; i++){
+                if(round<key){
+                    if(count<input.value.length) {
+                        encrypttxt += input.value[count];
+                        count += key;
+                    }
+                    else if(round != 0 && (input.value.length % 3) != 0) {
+                        encrypttxt += "x";
+                        count = round+1;
+                        round++;
+                    }
+                    else {
+                        count = round+1;
+                        round++;
+                    }
+                }
+            }
+
+            if(input.value) {
+                socket.emit("chat message", {
+                    msg: encrypttxt,
+                    user: userID
+                });
+                input.value = "";
+            }
+        })
+
+        form.addEventListener("reset", (e) => {
+            e.preventDefault();
+
+            let plaintxt = "";
+            let count = 0;
+            let round = 0;
+            let key = 3;
+            let lenText = ((input.value).length) / key;
+
+            for(let i=0; i<(input.value.length)+1; i++) {
+                if(round<=key) {
+                    if(count<input.value.length) {
+                        plaintxt += input.value[count];
+                        count += lenText;
+                    }
+                    else {
+                        count = round+1;
+                        round++;
+                    }
+                }
+            }
+
+            if(input.value) {
+                socket.emit("chat message", {
+                    msg: plaintxt,
+                    user: userID
+                });
+                input.value = "";
+            }
+        })
+
+        socket.on("chat message", (msgObject) => {
+            const message = document.createElement('li');
+            const messageItem = document.createElement('span');
+            messageItem.textContent = msgObject.msg;
+            if(msgObject.user === userID) {
+                message.classList.add('right');
+            }
+            message.appendChild(messageItem);
+            messages.appendChild(message);
+        })
+    </script>
+</body>
+</html>
