@@ -1,105 +1,122 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" type="text/css" href="/css/style.css">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" type="text/css" href="/css/style.css" />
     <title>Message</title>
-</head>
-<body>
+  </head>
+  <body>
     <ul id="messages"></ul>
 
     <form action="" id="form">
-        <input type="text" id="input" autocomplete="off" placeholder="Write some message">
-        <input type="submit" id="encrypt" value="ENCRYPT">
-        <input type="reset" id="decrypt" value="DECRYPT" onclick="">
+      <input
+        type="text"
+        id="input"
+        autocomplete="off"
+        placeholder="Write some message"
+      />
+      <input type="submit" id="encrypt" value="ENCRYPT" />
+      <input type="reset" id="decrypt" value="DECRYPT" onclick="" />
     </form>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        const socket = io();
-        const messages = document.getElementById('messages');
-        const form = document.getElementById('form');
-        const input = document.getElementById('input');
-        const userID = Date.now();
+      const socket = io();
+      const messages = document.getElementById("messages");
+      const form = document.getElementById("form");
+      const input = document.getElementById("input");
+      const userID = Date.now();
 
-        form.addEventListener("submit", (e) => {
-            e.preventDefault();
+      function encryptRailFence(text, key) {
+        let rail = new Array(key).fill().map(() => new Array(text.length).fill("\n"));
+        let dir_down = false;
+        let row = 0,
+          col = 0;
 
-            let lenText = ((input.value).length) / 3 * 3;
-            let encrypttxt = "";
-            let count = 0;
-            let round = 0;
-            let key = 3;
+        for (let i = 0; i < text.length; i++) {
+          if (row == 0 || row == key - 1) dir_down = !dir_down;
+          rail[row][col++] = text[i];
+          dir_down ? row++ : row--;
+        }
 
-            for(let i=0; i<=lenText+2; i++){
-                if(round<key){
-                    if(count<input.value.length) {
-                        encrypttxt += input.value[count];
-                        count += key;
-                    }
-                    else if(round != 0 && (input.value.length % 3) != 0) {
-                        encrypttxt += "x";
-                        count = round+1;
-                        round++;
-                    }
-                    else {
-                        count = round+1;
-                        round++;
-                    }
-                }
-            }
+        let result = "";
+        for (let i = 0; i < key; i++)
+          for (let j = 0; j < text.length; j++)
+            if (rail[i][j] != "\n") result += rail[i][j];
 
-            if(input.value) {
-                socket.emit("chat message", {
-                    msg: encrypttxt,
-                    user: userID
-                });
-                input.value = "";
-            }
-        })
+        return result;
+      }
 
-        form.addEventListener("reset", (e) => {
-            e.preventDefault();
+      function decryptRailFence(cipher, key) {
+        let rail = new Array(key).fill().map(() => new Array(cipher.length).fill("\n"));
+        let dir_down = false;
+        let row = 0,
+          col = 0;
 
-            let plaintxt = "";
-            let count = 0;
-            let round = 0;
-            let key = 3;
-            let lenText = ((input.value).length) / key;
+        for (let i = 0; i < cipher.length; i++) {
+          if (row == 0) dir_down = true;
+          if (row == key - 1) dir_down = false;
+          rail[row][col++] = "*";
+          dir_down ? row++ : row--;
+        }
 
-            for(let i=0; i<(input.value.length)+1; i++) {
-                if(round<=key) {
-                    if(count<input.value.length) {
-                        plaintxt += input.value[count];
-                        count += lenText;
-                    }
-                    else {
-                        count = round+1;
-                        round++;
-                    }
-                }
-            }
+        let index = 0;
+        for (let i = 0; i < key; i++)
+          for (let j = 0; j < cipher.length; j++)
+            if (rail[i][j] == "*" && index < cipher.length)
+              rail[i][j] = cipher[index++];
 
-            if(input.value) {
-                socket.emit("chat message", {
-                    msg: plaintxt,
-                    user: userID
-                });
-                input.value = "";
-            }
-        })
+        let result = "";
+        (row = 0), (col = 0);
+        for (let i = 0; i < cipher.length; i++) {
+          if (row == 0) dir_down = true;
+          if (row == key - 1) dir_down = false;
+          if (rail[row][col] != "*") result += rail[row][col++];
+          dir_down ? row++ : row--;
+        }
 
-        socket.on("chat message", (msgObject) => {
-            const message = document.createElement('li');
-            const messageItem = document.createElement('span');
-            messageItem.textContent = msgObject.msg;
-            if(msgObject.user === userID) {
-                message.classList.add('right');
-            }
-            message.appendChild(messageItem);
-            messages.appendChild(message);
-        })
+        return result;
+      }
+
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+
+        let encrypttxt = encryptRailFence(input.value, 3);
+
+        if (input.value) {
+          socket.emit("chat message", {
+            msg: encrypttxt,
+            user: userID,
+          });
+          input.value = "";
+        }
+      });
+
+      form.addEventListener("reset", (e) => {
+        e.preventDefault();
+
+        let decrypttxt = decryptRailFence(input.value, 3);
+      
+        if (input.value) {
+          socket.emit("chat message", {
+            msg: decrypttxt,
+            user: userID,
+          });
+          input.value = "";
+        }
+      });
+
+      socket.on("chat message", (msgObject) => {
+        const message = document.createElement("li");
+        const messageItem = document.createElement("span");
+        messageItem.textContent = msgObject.msg;
+        if (msgObject.user === userID) {
+          message.classList.add("right");
+        }
+        message.appendChild(messageItem);
+        messages.appendChild(message);
+      });
     </script>
-</body>
+  </body>
 </html>
